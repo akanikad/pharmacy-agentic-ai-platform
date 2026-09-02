@@ -1,331 +1,414 @@
 # Pharmacy Agentic AI Platform
 
-> **Independent reference implementation — no client proprietary code, data, credentials, or intellectual property.**
+> **Independent reference implementation | Healthcare / PBM | Agentic AI | RAG | Kafka | Cloud Architecture | DevSecOps**
 
-A cloud-native reference architecture for Pharmacy Services / PBM workflows demonstrating **Agentic AI, RAG, healthcare integration, Kafka, Domain-Driven Design, DevSecOps, observability, HITL, and cloud architecture**.
+[![CI](https://img.shields.io/github/actions/workflow/status/YOUR-GITHUB-USERNAME/pharmacy-agentic-ai-platform/ci.yml?label=CI)](https://github.com/YOUR-GITHUB-USERNAME/pharmacy-agentic-ai-platform/actions)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-orange.svg)](https://langchain-ai.github.io/langgraph/)
+[![Kafka](https://img.shields.io/badge/Events-Apache%20Kafka-black.svg)](https://kafka.apache.org/)
+[![Cloud](https://img.shields.io/badge/Cloud-AWS%20%7C%20Azure%20%7C%20GCP-informational.svg)](https://cloud.google.com/)
 
-This project is intentionally built as a portfolio/reference implementation to demonstrate hands-on architecture and engineering capability for enterprise healthcare modernization.
+## Executive Summary
 
-## What this demonstrates
+This repository demonstrates how I approach **enterprise healthcare modernization and Agentic AI architecture** from business problem through implementation, integration, security, operations, and cloud deployment.
 
-- **Agentic AI:** LangGraph supervisor + specialist agents
-- **RAG:** chunking, embeddings, vector retrieval, metadata filtering
-- **LLM strategy:** provider abstraction with Vertex AI / OpenAI-compatible endpoints and deterministic demo mode
-- **Healthcare:** synthetic PBM data, FHIR-inspired concepts, PHI-safe design patterns
-- **Integration:** REST APIs + Apache Kafka event-driven architecture
-- **Cloud:** GCP-oriented deployment model; portable containers
-- **Security:** OAuth/JWT boundary, least-privilege tool access, prompt-injection defense, output validation
-- **Architecture:** Domain-Driven Design, bounded contexts, reference architecture, buy-vs-build analysis
-- **DevSecOps:** Docker, GitHub Actions, Terraform foundation
-- **Operations:** structured logging, trace/correlation IDs, health checks
-- **HITL:** confidence-based escalation for high-impact workflows
-- **Cost optimization:** model routing, caching hooks, token/cost telemetry
-- **POC evaluation:** quality, groundedness, latency, cost, and safety dimensions
+The solution models representative Pharmacy Services / PBM workflows such as:
 
-## Architecture
+- Prior authorization knowledge and decision support
+- Claims investigation and policy lookup
+- Formulary and benefit-policy retrieval
+- Human-in-the-loop escalation
+- Event-driven integration using Kafka
+- Retrieval-augmented generation with grounded responses
+- Guardrails, observability, evaluation, and DevSecOps
+
+The implementation is intentionally independent and uses **synthetic data only**. It is not a reproduction of any client system or proprietary implementation.
+
+---
+
+## Why this project exists
+
+Enterprise healthcare organizations need to modernize legacy workflows without creating another isolated AI proof of concept.
+
+The architecture therefore treats GenAI as an **enterprise capability**:
+
+1. Secure entry and identity
+2. Intent classification and orchestration
+3. Domain-specific agents
+4. Grounded retrieval
+5. Scoped business tools/APIs
+6. Event-driven integration
+7. Human approval where risk requires it
+8. Evaluation and observability
+9. Cloud-native deployment and DevSecOps
+
+---
+
+## Reference Architecture
 
 ```mermaid
 flowchart LR
-    U[User / Application] --> A[API Gateway]
-    A --> V[Validation + Auth]
-    V --> S[LangGraph Supervisor]
+    U[User / Application] --> AZ[AuthN / AuthZ]
+    AZ --> G[API Gateway]
+    G --> V[Input Validation + Guardrails]
+    V --> O[LangGraph Orchestrator]
 
-    S --> R[RAG / Knowledge Agent]
-    S --> C[Claims Agent]
-    S --> P[Prior Authorization Agent]
+    O --> K[Knowledge Agent]
+    O --> PA[Prior Authorization Agent]
+    O --> C[Claims Agent]
 
+    K --> R[RAG Retrieval]
     R --> VS[(Vector Store)]
-    R --> L[LLM Gateway]
-    C --> T[Scoped API Tools]
-    P --> T
+    R --> RR[Reranker / Relevance Gate]
+    RR --> L[LLM / Model Gateway]
 
-    T --> K[(Kafka)]
-    K --> LS[Legacy / PBM Services]
+    PA --> T[Scoped Tool / API Layer]
+    C --> T
+    T --> SYS[Enterprise Systems]
 
-    S --> G[Guardrails]
-    G --> H{HITL Required?}
-    H -->|Yes| HI[Human Review]
-    H -->|No| O[Response]
+    O --> HITL[Human-in-the-Loop]
+    O --> EVT[Kafka Events]
 
-    S --> OBS[Observability]
-    A --> OBS
+    L --> OG[Output Guardrails]
+    T --> OG
+    HITL --> OG
+    OG --> RESP[Response]
+
+    O --> OBS[Tracing / Metrics / Audit]
+    EVT --> OBS
 ```
+
+### Architecture principles
+
+- **Domain-first:** business capabilities are modeled as bounded contexts rather than AI features.
+- **Orchestration over autonomy:** agents operate within explicit responsibilities and tool boundaries.
+- **Ground before generation:** retrieval and policy evidence are preferred over unsupported model reasoning.
+- **Event-driven integration:** Kafka decouples long-running workflows and downstream consumers.
+- **Human control:** high-impact decisions can pause for approval.
+- **Provider abstraction:** model access is separated from business logic to support model routing and future provider changes.
+- **Cloud portability:** core application patterns are cloud-neutral, with a GCP deployment foundation included.
+
+---
 
 ## Domain-Driven Design
 
-### Bounded contexts
+The reference domain is decomposed into bounded contexts:
 
-1. **Member Services** — eligibility and member context
-2. **Claims** — claim status and adjudication inquiries
-3. **Prior Authorization** — PA requirements and status
-4. **Formulary / Knowledge** — medication and policy knowledge
-5. **Integration** — Kafka/API/legacy connectivity
-6. **AI Orchestration** — agent state, routing, tools, guardrails
+| Bounded Context | Responsibility |
+|---|---|
+| Member & Eligibility | Member identity, coverage, eligibility |
+| Formulary | Drug coverage and preferred alternatives |
+| Prior Authorization | Clinical / policy criteria and workflow |
+| Claims | Claim intake, adjudication context, investigation |
+| Benefits | Benefit rules and plan configuration |
+| AI Decision Support | Retrieval, reasoning, recommendation, escalation |
+| Integration | Kafka events and enterprise API boundaries |
 
-The project keeps domain logic behind interfaces so that cloud/platform changes do not force changes to core business behavior.
+The agents sit **above the domain services**; they do not become the system of record.
 
-## Repository structure
+---
 
-```text
-pharmacy-agentic-ai-platform/
-├── app/
-│   ├── api/                 # FastAPI endpoints
-│   ├── agents/              # LangGraph supervisor + specialist agents
-│   ├── domain/              # DDD entities/value objects
-│   ├── rag/                 # ingestion, chunking, retrieval
-│   ├── tools/               # scoped business/API tools
-│   ├── guardrails/          # input/output safety controls
-│   ├── llm/                 # model/provider abstraction
-│   └── observability/       # logging/correlation
-├── data/
-│   ├── formulary/
-│   ├── claims/
-│   └── prior_auth/
-├── tests/
-├── evaluation/
-├── terraform/gcp/
-├── docker/
-├── .github/workflows/
-├── docs/
-└── docker-compose.yml
-```
+## Agent Architecture
 
-## Quick start
+The orchestration layer uses LangGraph to provide explicit state transitions.
 
-### 1. Clone and configure
+### Representative agents
 
-```bash
-cp .env.example .env
-```
+**Supervisor / Orchestrator**
+- Classifies the request
+- Selects the appropriate capability
+- Maintains workflow state
+- Applies failure/fallback rules
 
-For a no-credential demo, leave `LLM_PROVIDER=demo`.
+**Knowledge Agent**
+- Retrieves relevant policy content
+- Produces grounded answers
+- Identifies missing evidence
 
-### 2. Start local infrastructure
+**Prior Authorization Agent**
+- Interprets synthetic PA policy
+- Checks required information
+- Routes uncertain/high-risk cases to HITL
 
-```bash
-docker compose up -d
-```
+**Claims Agent**
+- Investigates claim-related questions
+- Calls scoped claim tools
+- Returns evidence and next actions
 
-This starts PostgreSQL/pgvector and Kafka.
+### Why multi-agent?
 
-### 3. Install Python dependencies
+The agents have **different tools, data boundaries, policies, and failure modes**. Splitting them makes authorization, testing, evaluation, and operational ownership clearer than giving one general-purpose agent unrestricted access.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+---
 
-### 4. Run the API
+## RAG Architecture
 
-```bash
-uvicorn app.main:app --reload --port 8080
-```
+The repository includes a lightweight retrieval implementation for local demonstration.
 
-Open:
+Production evolution would use:
 
 ```text
-http://localhost:8080/docs
+Documents
+   ↓
+Ingestion / Cleaning
+   ↓
+Semantic Chunking
+   ↓
+Embeddings
+   ↓
+Vector Store + Metadata
+   ↓
+Hybrid Retrieval
+   ↓
+Reranking
+   ↓
+Evidence Threshold
+   ↓
+LLM
+   ↓
+Citation / Grounded Response
 ```
 
-### 5. Try the assistant
+### Retrieval design choices
 
-```bash
-curl -X POST http://localhost:8080/v1/assist \
-  -H "Content-Type: application/json" \
-  -d '{"message":"What documentation is generally required for a prior authorization?","member_id":"M1001"}'
-```
+- Chunk by policy section / semantic boundary rather than arbitrary fixed windows.
+- Preserve metadata such as policy type, version, effective date, and domain.
+- Use hybrid retrieval when terminology and identifiers matter.
+- Add a reranking stage for high-value workflows.
+- Refuse or escalate when evidence confidence is below the configured threshold.
 
-The demo provider returns deterministic responses without requiring an external LLM key.
+---
 
-## Example workflows
+## Kafka / Event-Driven Integration
 
-### Prior Authorization
+Representative events include:
 
 ```text
-User
- → Intent classification
- → Prior Authorization Agent
- → Knowledge/RAG lookup
- → Policy grounding
- → Confidence check
- → HITL if needed
- → Response
+prior-authorization.requested
+prior-authorization.review-required
+claim.investigation-requested
+claim.status-updated
+ai.decision-support.completed
+human-review.completed
 ```
 
-### Claims inquiry
+Kafka provides:
 
-```text
-User
- → Supervisor
- → Claims Agent
- → Scoped Claims Tool
- → Kafka event
- → Claim service
- → Result
- → Guardrail
- → Response
-```
+- Loose coupling between bounded contexts
+- Replayability
+- Consumer independence
+- Asynchronous workflow support
+- Scalable downstream processing
 
-## RAG strategy
+Production hardening would add schema registry, compatibility rules, idempotency keys, DLQs, retry topics, consumer lag monitoring, and trace propagation.
 
-The reference implementation uses:
+---
 
-- semantic chunking with configurable chunk size
-- overlap to preserve context
-- metadata: document type, effective date, source
-- retrieval top-k
-- optional confidence threshold
-- citation-ready source metadata
+## Security & Responsible AI
 
-For production, the vector layer can be replaced by **Vertex AI Vector Search, AlloyDB/pgvector, OpenSearch, or another enterprise-approved vector platform**.
+Security is designed as a perimeter around the agentic system:
 
-## Agent design
+- Authentication and authorization
+- Least-privilege tool credentials
+- Input validation
+- Prompt-injection / jailbreak detection
+- Output filtering
+- Sensitive-data minimization
+- Audit logging
+- Human approval for high-impact actions
+- Secret management outside source control
+- Network isolation and service-to-service controls
 
-### Supervisor
+**No real PHI, client data, credentials, or proprietary artifacts are included.**
 
-Routes requests to the smallest capable agent and maintains workflow state.
+---
 
-### Knowledge Agent
+## Observability
 
-Answers policy/formulary questions using grounded retrieval.
+The design treats AI observability as more than application logs:
 
-### Claims Agent
+- Request / workflow correlation IDs
+- Agent transition tracing
+- Tool invocation audit
+- Latency and token metrics
+- Retrieval relevance
+- Guardrail outcomes
+- Human escalation rate
+- Model / prompt version
+- Error and fallback paths
 
-Uses a narrowly scoped claims tool rather than giving the LLM unrestricted database access.
+Target production integrations include OpenTelemetry-compatible tracing and centralized metrics/logging.
 
-### Prior Authorization Agent
+---
 
-Combines policy retrieval with workflow/tool access and can request human review for low-confidence or high-impact outcomes.
+## Evaluation
 
-## Security and guardrails
+The `evaluation/` area establishes a repeatable framework for measuring:
 
-The project demonstrates architecture patterns rather than claiming regulatory certification.
+- Answer correctness
+- Groundedness
+- Retrieval relevance
+- Safety / guardrail behavior
+- Tool-call correctness
+- Latency
+- Cost per workflow
 
-Controls include:
+The important architectural principle is **evaluate the workflow, not just the LLM**.
 
-- authentication boundary
-- least-privilege tool interfaces
-- input validation
-- prompt-injection pattern detection
-- output validation
-- no unrestricted SQL generated by the model
-- synthetic data only
-- correlation IDs
-- audit-friendly event structure
-- HITL for sensitive decisions
+---
 
-For a real HIPAA workload, additional enterprise controls, BAA/vendor review, encryption, retention, access governance, audit controls, and formal security/compliance validation would be required.
+## Cloud Architecture
 
-## Kafka design
+The application is containerized and includes a GCP Terraform foundation.
 
-Topics:
+A production implementation can map the components to managed services such as:
 
-```text
-pharmacy.claims.inquiry
-pharmacy.prior-auth.requested
-pharmacy.agent.audit
-```
+| Capability | GCP pattern |
+|---|---|
+| API / services | Cloud Run or GKE |
+| LLM | Vertex AI |
+| Vector retrieval | Vertex AI Vector Search / managed PostgreSQL |
+| Events | Pub/Sub or Kafka on GCP |
+| Data | Cloud Storage / BigQuery |
+| Secrets | Secret Manager |
+| Identity | IAM / Workload Identity |
+| Observability | Cloud Logging / Monitoring / Trace |
+| Security perimeter | VPC Service Controls + IAM |
 
-Patterns demonstrated:
+Equivalent AWS and Azure mappings can be used where the enterprise landing zone dictates.
 
-- consumer groups
-- event keys
-- retries
-- dead-letter topic concept
-- idempotency key
-- correlation ID
-- schema version
+---
+
+## DevSecOps
+
+The repository includes:
+
+- GitHub Actions CI
+- Automated tests
+- Container build
+- Security scanning
+- Infrastructure-as-code foundation
+- Environment separation
+- Configuration through environment variables
+- Runbook and architecture decision records
+
+---
 
 ## Buy vs Build
 
-| Capability | Build | Buy / Managed | Reference recommendation |
-|---|---|---|---|
-| Foundation LLM | No | Yes | Managed model |
-| Vector search | Optional | Yes | Managed/enterprise vector service |
-| Agent orchestration | Yes | Optional | Build domain orchestration |
-| API gateway | No | Yes | Managed gateway |
-| Kafka | No | Yes | Managed Kafka where available |
-| Observability | No | Yes | Enterprise platform |
-| Business workflow | Yes | Depends | Build domain-specific logic |
+The architecture deliberately separates capabilities that should generally be **managed/commodity** from differentiating business logic.
 
-## Cost optimization
+### Prefer managed
 
-Architecture levers:
+- Foundation models
+- Identity
+- Secrets
+- Cloud networking controls
+- Managed vector infrastructure
+- Observability platforms
+- Kafka platform where enterprise standard exists
 
-1. route simple questions to smaller models
-2. use RAG before expensive long-context generation
-3. cache stable knowledge responses where policy permits
-4. enforce token budgets
-5. batch embedding operations
-6. monitor cost per workflow
-7. use asynchronous Kafka processing for non-interactive workloads
+### Build where differentiation matters
 
-## POC evaluation
+- PBM workflow orchestration
+- Domain policies
+- Agent/tool boundaries
+- Business rules
+- Human approval workflows
+- Enterprise integration adapters
+- Evaluation criteria
 
-The `evaluation/` package defines a lightweight scorecard:
+See `docs/buy-vs-build.md`.
 
-- answer quality
-- groundedness
-- retrieval relevance
-- latency
-- token usage
-- estimated cost
-- safety failures
+---
 
-The objective is to make model/vendor decisions based on measurable business and technical criteria rather than model popularity.
+## Architecture Decision Records
 
-## Cloud reference architecture
+| ADR | Decision |
+|---|---|
+| ADR-001 | Agent orchestration |
+| ADR-002 | Vector-store strategy |
+| ADR-003 | Model/provider abstraction |
+| ADR-004 | Kafka integration |
+| ADR-005 | Cloud deployment strategy |
+| ADR-006 | Security architecture |
+| ADR-007 | Buy vs. build |
 
-The preferred target is GCP:
+---
 
-```text
-Client
-  |
-Cloud Load Balancing / API Gateway
-  |
-Cloud Run or GKE
-  |
-LangGraph Application
-  |--------- Vertex AI / Model Gateway
-  |--------- AlloyDB / pgvector or Vector Search
-  |--------- Managed Kafka
-  |--------- Cloud Logging / Monitoring / Trace
-  |
-Private VPC + IAM + Secret Manager
+## Local Demo
+
+```bash
+git clone https://github.com/YOUR-GITHUB-USERNAME/pharmacy-agentic-ai-platform.git
+cd pharmacy-agentic-ai-platform
+
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+
+pip install -r requirements.txt
+cp .env.example .env
+
+uvicorn app.main:app --reload
 ```
 
-Terraform in `terraform/gcp/` is intentionally a **foundation template**. Production deployment requires organization-specific project IDs, IAM policies, networking ranges, approved modules, and security controls.
+API health check:
 
-## JD alignment
+```text
+GET /health
+```
 
-| Client requirement | Portfolio evidence |
+The Docker Compose configuration provides local infrastructure for demonstration.
+
+---
+
+## Repository Structure
+
+```text
+app/
+  agents/          # LangGraph orchestration and domain agents
+  domain/          # PBM domain model
+  guardrails/      # Input/output safety controls
+  integration/     # Kafka integration
+  llm/             # Model-provider abstraction
+  observability/   # Logging/tracing
+  rag/             # Retrieval
+  tools/            # Scoped business tools
+
+data/               # Synthetic policy data
+docs/               # Architecture, ADRs, runbook
+evaluation/         # Evaluation framework
+terraform/          # GCP infrastructure foundation
+tests/              # Automated tests
+.github/            # CI/CD
+```
+
+---
+
+## What this demonstrates
+
+| Client capability | Portfolio evidence |
 |---|---|
-| 10–15+ years architecture/development | Resume/experience; GitHub demonstrates hands-on depth |
-| Enterprise Solution Architecture | `docs/reference-architecture.md` |
-| Cloud implementation | GCP Terraform + Docker |
-| AI experience | Agentic AI + RAG + model abstraction |
-| Healthcare domain | PBM workflows + synthetic healthcare data |
-| Agentic AI | LangGraph supervisor/specialist agents |
-| Application/integration architecture | FastAPI + Kafka + tool interfaces |
-| Security | Auth boundary + guardrails + least privilege |
-| Automation | CI/CD + Terraform + Docker |
-| DDD | Bounded contexts + domain layer |
-| Kafka / legacy glue | Event-driven integration |
-| DevSecOps | GitHub Actions + security checks |
-| DataOps | Data ingestion/evaluation patterns |
-| SQL / NoSQL | PostgreSQL + document-oriented sample patterns |
-| Prototypes / POCs | Runnable local demo |
-| AI/ML + RPA | AI workflow plus automation-ready tool boundary |
-| Cloud-native | Containers + GCP target architecture |
-| Cradle-to-grave leadership | Reference architecture + operational considerations |
-| Buy vs Build | Decision matrix |
-| Architecture reviews | ADRs and design review checklist |
-| Reference architecture | Mermaid diagrams + architecture document |
-| Technical roadblocks | Troubleshooting/runbook documentation |
-| Cost optimization | Model routing/cache/token strategy |
-| Mentoring/upskilling | Architecture decision records and implementation guide |
+| Enterprise solution architecture | End-to-end reference architecture |
+| Healthcare / PBM | Pharmacy and PBM bounded contexts |
+| Agentic AI | LangGraph supervisor + specialized agents |
+| RAG | Retrieval pipeline and grounding strategy |
+| Cloud | GCP Terraform + AWS/Azure mapping |
+| Kafka | Event-driven integration |
+| Security | Guardrails, IAM/tool boundaries, audit |
+| DevSecOps | CI, testing, scanning, IaC |
+| DDD | Explicit bounded contexts |
+| SQL / NoSQL | Data architecture documented for polyglot persistence |
+| AI/ML/GenAI | Model abstraction, evaluation, RAG |
+| RPA / automation | Workflow automation patterns documented |
+| Cost optimization | Managed-service and model-routing principles |
+| Architecture leadership | ADRs, buy-vs-build, modernization principles |
+| POC delivery | Local runnable reference implementation |
+
+---
 
 ## Disclaimer
 
-This repository is an independent portfolio/reference implementation. It does **not** represent a production implementation for CVS, Walmart, Kroger, Accenture, or any other client/employer. All healthcare data is synthetic.
+This is an **independent reference implementation created for portfolio demonstration**. It contains synthetic healthcare/PBM data and does not contain client source code, confidential information, PHI, credentials, or proprietary intellectual property.
+
+Production architecture decisions would be adapted to the enterprise's security, compliance, cloud landing zone, data governance, and operational standards.
