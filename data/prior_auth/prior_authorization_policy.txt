@@ -1,0 +1,12 @@
+Synthetic Prior Authorization Policy
+
+This document is synthetic and created only for demonstration.
+
+A prior authorization request may require medication details, member/plan
+information, prescriber information, diagnosis or clinical rationale, and
+supporting documentation according to the applicable policy.
+
+The Agentic AI assistant may summarize requirements and retrieve policy content.
+It must not make an unauthorized clinical or coverage determination. Low
+confidence, conflicting policy information, or high-impact decisions should
+route to human review.

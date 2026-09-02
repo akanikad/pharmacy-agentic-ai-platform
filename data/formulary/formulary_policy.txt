@@ -1,0 +1,10 @@
+Synthetic Formulary Policy
+
+This document is synthetic and created only for demonstration.
+
+Formulary questions should be answered using the applicable plan, effective date,
+and approved formulary source. The assistant must not invent coverage rules.
+
+Medication questions should identify the drug, strength, route, and relevant
+plan context when available. If policy context is missing or ambiguous, escalate
+to an authorized pharmacy services workflow.

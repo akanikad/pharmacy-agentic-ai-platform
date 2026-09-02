@@ -1,0 +1,10 @@
+Synthetic Claims Policy
+
+This document is synthetic and created only for demonstration.
+
+Claims inquiries may include claim status, rejection reason, adjudication
+status, and next-step guidance. The assistant should use scoped tools and
+should never expose unrestricted database access to the language model.
+
+All events should include a correlation identifier and an idempotency strategy
+where downstream processing can be retried.
