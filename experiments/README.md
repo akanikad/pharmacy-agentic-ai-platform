@@ -1,7 +1,6 @@
 # Experiments
 
-Small, unpolished spikes testing ideas before they become part of the main
-platform. Each folder is a standalone POC, not production code.
+Small, focused prototypes exploring emerging AI patterns before production consideration. Each folder is a standalone POC, not production code.
 
 | Experiment | What it tests | Status |
 |---|---|---|
